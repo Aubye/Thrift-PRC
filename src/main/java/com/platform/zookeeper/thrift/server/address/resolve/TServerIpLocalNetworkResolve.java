@@ -1,4 +1,4 @@
-package com.platform.zookeeper.thrift.server.resolve;
+package com.platform.zookeeper.thrift.server.address.resolve;
 
 
 import org.slf4j.Logger;
@@ -14,8 +14,8 @@ import java.util.Enumeration;
  * 解析网卡Ip
  *
  */
-public class ServerIpLocalNetworkResolve implements ServerIpResolve {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ServerIpLocalNetworkResolve.class);
+public class TServerIpLocalNetworkResolve implements TServerIpResolve {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TServerIpLocalNetworkResolve.class);
 
     //缓存
     private String serverIp;

@@ -1,8 +1,8 @@
-package com.platform.zookeeper.thrift.server.register;
+package com.platform.zookeeper.thrift.server.address.register;
 
 import com.platform.zookeeper.thrift.exception.ThriftException;
 
-public interface ServerAddressRegister {
+public interface TServerAddressRegister {
 
     /**
      * 发布服务接口

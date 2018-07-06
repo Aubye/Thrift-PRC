@@ -1,4 +1,4 @@
-package com.platform.zookeeper.thrift.server.register;
+package com.platform.zookeeper.thrift.server.address.register;
 
 import com.platform.zookeeper.thrift.exception.ThriftException;
 import org.apache.curator.framework.CuratorFramework;
@@ -13,15 +13,15 @@ import java.io.UnsupportedEncodingException;
 /**
  * 注册服务列表到zookeeper
  */
-public class ServerAddressRegisterZookeeper implements ServerAddressRegister {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ServerAddressRegisterZookeeper.class);
+public class TServerAddressRegisterZookeeper implements TServerAddressRegister {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TServerAddressRegisterZookeeper.class);
 
     private CuratorFramework zkClient;
 
-    public ServerAddressRegisterZookeeper() {
+    public TServerAddressRegisterZookeeper() {
     }
 
-    public ServerAddressRegisterZookeeper(CuratorFramework zkClient) {
+    public TServerAddressRegisterZookeeper(CuratorFramework zkClient) {
         this.zkClient = zkClient;
     }
 
@@ -35,14 +35,14 @@ public class ServerAddressRegisterZookeeper implements ServerAddressRegister {
             zkClient.start();
         }
         if(StringUtils.isEmpty(version)){
-            version="1.0.0";
+            version = "1.0.0";
         }
         //临时节点
         try {
             zkClient.create()
                     .creatingParentsIfNeeded()
                     .withMode(CreateMode.EPHEMERAL)
-                    .forPath("/"+service+"/"+version+"/"+address);
+                    .forPath("/" + service + "/" + version + "/" + address);
         } catch (UnsupportedEncodingException e) {
             LOGGER.error("register service address to zookeeper exception:{}", e);
             throw new ThriftException("register service address to zookeeper exception: address UnsupportedEncodingException", e);
