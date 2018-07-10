@@ -16,6 +16,4 @@ public @interface ThriftService {
 
     String name() default "";
 
-    int port() default 10000;
-
 }

@@ -13,7 +13,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Queue;
+import java.util.Set;
 
 /**
  * 使用zookeeper作为"config"中心
@@ -21,28 +24,31 @@ import java.util.*;
 public class TServerAddressProviderZookeeper implements TServerAddressProvider, InitializingBean {
     private static final Logger LOGGER = LoggerFactory.getLogger(TServerAddressProviderZookeeper.class);
 
+    public static final String CHARSET_NAME = "utf-8";
+    public static final String IP_ADDRESS_SPLIT = ":";
+    public static final int IP_ADDRESS_LENGTH = 3;
+
+    private static final Integer DEFAULT_WEIGHT = 1;
+    private static final boolean CACHE_DATA = true;
+
     private CuratorFramework zkClient;
 
     private PathChildrenCache cachedPath;
+
+    private Object lock = new Object();
 
     // 用来保存当前provider所接触过的地址记录
     // 当zookeeper集群故障时,可以使用trace中地址,作为"备份"
     private Set<String> trace = Sets.newHashSet();
 
     private final List<InetSocketAddress> container = Lists.newArrayList();
-
     private Queue<InetSocketAddress> inner = Lists.newLinkedList();
-
-    private Object lock = new Object();
 
     // 注册服务
     private String service;
 
     // 服务版本号
     private String version = "1.0.0";
-
-    private static final Integer DEFAULT_WEIGHT = 1;
-    private static final boolean CACHE_DATA = true;
 
     public void setService(String service) {
         this.service = service;
@@ -77,7 +83,7 @@ public class TServerAddressProviderZookeeper implements TServerAddressProvider, 
         return "/" + service + "/" + version;
     }
 
-    private void buildPathChildrenCache(final CuratorFramework client, String path, Boolean cacheData) throws Exception {
+    private void buildPathChildrenCache(final CuratorFramework client, String path, Boolean cacheData) {
         cachedPath = new PathChildrenCache(client, path, cacheData);
         cachedPath.getListenable().addListener(new PathChildrenCacheListener() {
             @Override
@@ -103,45 +109,46 @@ public class TServerAddressProviderZookeeper implements TServerAddressProvider, 
             protected void rebuild() throws Exception {
                 List<ChildData> children = cachedPath.getCurrentData();
                 if (children == null || children.isEmpty()) {
-                    // 有可能所有的thrift server都与zookeeper断开了链接
-                    // 但是,有可能,thrift client与thrift server之间的网络是良好的
-                    // 因此此处是否需要清空container,是需要多方面考虑的.
-                    container.clear();
+                    // 所有的thrift server都与zookeeper断开了链接,
+                    // 但是可能thrift client与thrift server之间的网络是良好的,
+                    // 所以此处保留容器
+                    //container.clear();
                     LOGGER.error("thrift server-cluster error....");
                     return;
                 }
-                List<InetSocketAddress> current = new ArrayList<InetSocketAddress>();
+
+                List<InetSocketAddress> current = Lists.newArrayList();
                 String path = null;
                 for (ChildData data : children) {
                     path = data.getPath();
-                    LOGGER.debug("get path:"+path);
-                    path = path.substring(getServicePath().length()+1);
-                    LOGGER.debug("get serviceAddress:"+path);
-                    String address = new String(path.getBytes(), "utf-8");
+                    LOGGER.debug("get path:" + path);
+                    path = path.substring(getServicePath().length() + 1);
+                    LOGGER.debug("get serviceAddress:" + path);
+                    String address = new String(path.getBytes(), CHARSET_NAME);
                     current.addAll(transfer(address));
                     trace.add(address);
                 }
+
                 Collections.shuffle(current);
                 synchronized (lock) {
                     container.clear();
                     container.addAll(current);
                     inner.clear();
                     inner.addAll(current);
-
                 }
             }
         });
     }
 
     private List<InetSocketAddress> transfer(String address) {
-        String[] hostname = address.split(":");
+        String[] hostname = address.split(IP_ADDRESS_SPLIT);
         Integer weight = DEFAULT_WEIGHT;
-        if (hostname.length == 3) {
+        if (hostname.length == IP_ADDRESS_LENGTH) {
             weight = Integer.valueOf(hostname[2]);
         }
         String ip = hostname[0];
         Integer port = Integer.valueOf(hostname[1]);
-        List<InetSocketAddress> result = new ArrayList<InetSocketAddress>();
+        List<InetSocketAddress> result = Lists.newArrayList();
         // 根据优先级，将ip：port添加多次到地址集中，然后随机取地址实现负载
         for (int i = 0; i < weight; i++) {
             result.add(new InetSocketAddress(ip, port));
